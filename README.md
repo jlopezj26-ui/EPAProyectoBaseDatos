@@ -16,6 +16,18 @@ npm run start:dev
 
 La API queda disponible en `http://localhost:3000/api` y la documentación Swagger interactiva en `http://localhost:3000/api/docs`.
 
+## Frontend de prueba
+
+En otra terminal, instala las dependencias y levanta la interfaz React:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Abre `http://localhost:5173`. Vite redirige las llamadas `/api` al backend en `http://localhost:3000`; inicia primero la API para consultar y gestionar productos. Para apuntar a otra URL, define `VITE_API_URL` al iniciar el frontend.
+
 ## Estructura
 
 ```text
