@@ -19,7 +19,7 @@ export function Catalogs({ productos, categorias, clientes, empleados }: Catalog
 
   const filteredProducts = productos.filter((p) => p.nombre.toLowerCase().includes(query.toLowerCase()));
   const filteredClients = clientes.filter((c) => `${c.nombre} ${c.nit} ${c.dpi}`.toLowerCase().includes(query.toLowerCase()));
-  const filteredEmployees = empleados.filter((e) => `${e.nombre} ${e.pusto}`.toLowerCase().includes(query.toLowerCase()));
+  const filteredEmployees = empleados.filter((e) => `${e.nombre} ${e.puesto}`.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -100,7 +100,7 @@ export function Catalogs({ productos, categorias, clientes, empleados }: Catalog
                 {filteredEmployees.map((e) => (
                   <tr key={e.id_empleado} className="border-b border-slate-50">
                     <td className="py-4 font-bold text-slate-800">{e.nombre}</td>
-                    <td className="py-4 text-sm"><StatusBadge value={e.pusto} /></td>
+                    <td className="py-4 text-sm"><StatusBadge value={e.puesto} /></td>
                     <td className="py-4 text-sm text-slate-500">{e.id_sucursal}</td>
                     <td className="py-4 text-sm text-slate-500">{e.fecha_ingreso}</td>
                   </tr>

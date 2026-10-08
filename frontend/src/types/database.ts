@@ -41,7 +41,7 @@ export interface TbEmpleado {
   id_empleado: number;
   id_sucursal: number;
   nombre: string;
-  pusto: string;
+  puesto: string;
   fecha_ingreso: string;
 }
 
@@ -96,4 +96,4 @@ export interface DashboardMetrics {
   alertas_stock: number;
 }
 
-export type ModuleKey = "home" | "pos" | "inventario" | "catalogos" | "reportes";
+export type ModuleKey = "home" | "pos" | "inventario" | "catalogos" | "reportes" | "basedatos";

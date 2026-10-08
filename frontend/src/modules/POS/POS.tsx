@@ -13,7 +13,7 @@ interface POSProps {
 export function POS({ productos, clientes, inventario, sucursalId, empleadoId }: POSProps) {
   const [query, setQuery] = useState("");
   const [clienteQuery, setClienteQuery] = useState("");
-  const [selectedClient, setSelectedClient] = useState<TbCliente>(clientes[2]);
+  const [selectedClient, setSelectedClient] = useState<TbCliente | null>(clientes[0] ?? null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -69,7 +69,7 @@ export function POS({ productos, clientes, inventario, sucursalId, empleadoId }:
   };
 
   const simulateSale = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || !selectedClient) return;
     setSaving(true);
     setMessage("");
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -142,7 +142,7 @@ export function POS({ productos, clientes, inventario, sucursalId, empleadoId }:
                 key={client.id_cliente}
                 onClick={() => setSelectedClient(client)}
                 className={`w-full rounded-lg p-2 text-left text-xs ${
-                  selectedClient.id_cliente === client.id_cliente ? "bg-amber-50 text-amber-800" : "hover:bg-slate-50"
+                    selectedClient?.id_cliente === client.id_cliente ? "bg-amber-50 text-amber-800" : "hover:bg-slate-50"
                 }`}
               >
                 <span className="font-bold">{client.nombre}</span> · {client.nit}
@@ -151,8 +151,8 @@ export function POS({ productos, clientes, inventario, sucursalId, empleadoId }:
           </div>
 
           <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
-            <p className="font-bold text-slate-800">{selectedClient.nombre}</p>
-            <p className="mt-1 text-xs text-slate-500">NIT: {selectedClient.nit} · DPI: {selectedClient.dpi}</p>
+            <p className="font-bold text-slate-800">{selectedClient?.nombre ?? "Sin clientes registrados"}</p>
+            {selectedClient && <p className="mt-1 text-xs text-slate-500">NIT: {selectedClient.nit} · DPI: {selectedClient.dpi}</p>}
           </div>
         </aside>
       </div>
@@ -194,7 +194,7 @@ export function POS({ productos, clientes, inventario, sucursalId, empleadoId }:
             <p className="text-3xl font-black text-slate-900">Q {total.toFixed(2)}</p>
           </div>
           <button
-            disabled={saving || cart.length === 0}
+            disabled={saving || cart.length === 0 || !selectedClient}
             onClick={simulateSale}
             className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
           >

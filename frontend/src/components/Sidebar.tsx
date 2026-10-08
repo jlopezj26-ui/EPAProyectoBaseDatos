@@ -12,7 +12,8 @@ const items: Array<{ key: ModuleKey; label: string; short: string }> = [
   { key: "pos", label: "Facturación / POS", short: "$" },
   { key: "inventario", label: "Inventario", short: "▣" },
   { key: "catalogos", label: "Catálogos", short: "▤" },
-  { key: "reportes", label: "Reportes", short: "▥" }
+  { key: "reportes", label: "Reportes", short: "▥" },
+  { key: "basedatos", label: "Base de datos", short: "DB" }
 ];
 
 export function Sidebar({ active, onNavigate, mobileOpen, onClose }: SidebarProps) {

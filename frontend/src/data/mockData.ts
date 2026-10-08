@@ -40,8 +40,8 @@ export const clientes: TbCliente[] = [
 ];
 
 export const empleados: TbEmpleado[] = [
-  { id_empleado: 1, id_sucursal: 1, nombre: "Andrea López", pusto: "CAJERO", fecha_ingreso: "2025-01-15" },
-  { id_empleado: 2, id_sucursal: 2, nombre: "Luis García", pusto: "CAJERO", fecha_ingreso: "2025-03-10" }
+  { id_empleado: 1, id_sucursal: 1, nombre: "Andrea López", puesto: "CAJERO", fecha_ingreso: "2025-01-15" },
+  { id_empleado: 2, id_sucursal: 2, nombre: "Luis García", puesto: "CAJERO", fecha_ingreso: "2025-03-10" }
 ];
 
 export const inventario: TbInventario[] = [
