@@ -32,21 +32,29 @@ export class OracleService implements OnModuleInit, OnModuleDestroy {
     const resolvedWalletPath = walletPath
       ? this.resolveWalletDirectory(isAbsolute(walletPath) ? walletPath : resolve(process.cwd(), walletPath))
       : undefined;
-    this.pool = await oracledb.createPool({
+
+    const poolConfig: oracledb.PoolAttributes = {
       user,
       password,
       connectString,
-      poolMin: 1,
-      poolMax: 8,
+      poolMin: 0,
+      poolMax: 2,
       poolIncrement: 1,
-      ...(resolvedWalletPath ? {
+      poolTimeout: 30,
+      queueTimeout: 60000,
+      enableStatistics: false,
+    };
+
+    if (resolvedWalletPath) {
+      const walletPassword = this.config.get<string>('ORACLE_WALLET_PASSWORD');
+      Object.assign(poolConfig, {
         configDir: resolvedWalletPath,
         walletLocation: resolvedWalletPath,
-      } : {}),
-      ...(this.config.get<string>('ORACLE_WALLET_PASSWORD')
-        ? { walletPassword: this.config.get<string>('ORACLE_WALLET_PASSWORD') }
-        : {}),
-    });
+        ...(walletPassword ? { walletPassword } : {}),
+      });
+    }
+
+    this.pool = await oracledb.createPool(poolConfig);
   }
 
   async onModuleDestroy(): Promise<void> {
