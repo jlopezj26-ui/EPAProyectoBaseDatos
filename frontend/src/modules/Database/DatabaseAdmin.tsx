@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type ApiField, type ApiTable } from '../../services/api';
+import { compareValues, toggleSort, type SortState } from '../../utils/sorting';
 
 type Row = Record<string, unknown>;
 type Props = { onDataChanged: () => void };
@@ -14,6 +15,7 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [sort, setSort] = useState<SortState>({ key: '', direction: 'asc' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -34,6 +36,7 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
     if (!activeTable) return;
     let cancelled = false;
     setColumnFilters({});
+    setSort({ key: '', direction: 'asc' });
     setLoading(true);
     setError('');
     api.getTable(activeTable.nombre)
@@ -45,7 +48,7 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
 
   const visibleRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('es');
-    return rows.filter((row) => {
+    const filteredRows = rows.filter((row) => {
       const matchesQuery = !normalizedQuery || Object.values(row)
         .some((value) => String(value ?? '').toLocaleLowerCase('es').includes(normalizedQuery));
       const matchesColumns = activeTable?.campos.every((field) => {
@@ -54,7 +57,14 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
       }) ?? true;
       return matchesQuery && matchesColumns;
     });
-  }, [activeTable, columnFilters, query, rows]);
+    if (!sort.key || !activeTable) return filteredRows;
+    const field = activeTable.campos.find((item) => item.nombre === sort.key);
+    if (!field) return filteredRows;
+    return filteredRows.sort((left, right) => {
+      const result = compareValues(displayValue(field, left), displayValue(field, right));
+      return sort.direction === 'asc' ? result : -result;
+    });
+  }, [activeTable, columnFilters, query, rows, sort]);
 
   async function loadReferences(table: ApiTable) {
     const referenceTables = [...new Set(table.campos.flatMap((field) =>
@@ -201,7 +211,13 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
               <tr>
                 {activeTable?.campos.map((field) => (
                   <th key={field.nombre} className="min-w-36 px-4 py-3 align-top text-left uppercase">
-                    <span className="block">{field.etiqueta}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSort((current) => toggleSort(current, field.nombre))}
+                      className="block font-inherit"
+                    >
+                      {field.etiqueta} {sort.key === field.nombre ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
+                    </button>
                     <input
                       value={columnFilters[field.nombre] ?? ''}
                       onChange={(event) => setColumnFilters((current) => ({ ...current, [field.nombre]: event.target.value }))}
