@@ -33,7 +33,7 @@ export function Sidebar({ active, onNavigate, mobileOpen, onClose }: SidebarProp
         }`}
       >
         <div className="flex h-20 items-center gap-3 border-b border-slate-800 px-6">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 font-black text-slate-950">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500 font-black text-slate-950">
             E
           </div>
           <div>
@@ -59,7 +59,7 @@ export function Sidebar({ active, onNavigate, mobileOpen, onClose }: SidebarProp
                 }}
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${
                   selected
-                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/10"
+                    ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/10"
                     : "text-slate-300 hover:bg-slate-900 hover:text-white"
                 }`}
               >

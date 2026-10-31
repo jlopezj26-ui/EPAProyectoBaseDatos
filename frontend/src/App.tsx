@@ -38,6 +38,8 @@ function App() {
   const [loadError, setLoadError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [data, setData] = useState<AppData | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -75,18 +77,32 @@ function App() {
     void load();
   }, [refreshKey]);
 
-  const activeEmployee = data?.empleados[0];
+  const activeEmployee = data?.empleados.find((employee) => employee.id_empleado === selectedEmployeeId) ?? data?.empleados[0];
 
   const activeBranch = useMemo(
-    () => data?.sucursales.find((branch) => branch.id_sucursal === activeEmployee?.id_sucursal) ?? data?.sucursales[0],
-    [data, activeEmployee]
+    () => data?.sucursales.find((branch) => branch.id_sucursal === selectedBranchId)
+      ?? data?.sucursales.find((branch) => branch.id_sucursal === activeEmployee?.id_sucursal)
+      ?? data?.sucursales[0],
+    [data, selectedBranchId, activeEmployee]
   );
+
+  function changeBranch(id: number) {
+    const employee = data?.empleados.find((item) => item.id_sucursal === id);
+    setSelectedBranchId(id);
+    if (employee) setSelectedEmployeeId(employee.id_empleado);
+  }
+
+  function changeEmployee(id: number) {
+    const employee = data?.empleados.find((item) => item.id_empleado === id);
+    setSelectedEmployeeId(id);
+    if (employee) setSelectedBranchId(employee.id_sucursal);
+  }
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
-          <div className="mx-auto flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-amber-500 text-2xl font-black text-slate-950">
+          <div className="mx-auto flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-emerald-500 text-2xl font-black text-slate-950">
             E
           </div>
           <p className="mt-4 text-sm font-bold text-white">Cargando EPA ERP...</p>
@@ -100,10 +116,10 @@ function App() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-center">
         <div className="max-w-lg">
-          <p className="text-sm font-bold uppercase tracking-wider text-amber-500">Conexión a Oracle</p>
+          <p className="text-sm font-bold uppercase tracking-wider text-emerald-500">Conexión a Oracle</p>
           <h1 className="mt-3 text-2xl font-black text-white">No se pudieron cargar los datos</h1>
           <p className="mt-3 text-sm text-slate-300">{loadError || 'El API no devolvió información.'}</p>
-          <button onClick={() => window.location.reload()} className="mt-6 rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-950">Reintentar</button>
+          <button onClick={() => window.location.reload()} className="mt-6 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Reintentar</button>
         </div>
       </div>
     );
@@ -126,10 +142,10 @@ function App() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-center">
         <div className="max-w-lg">
-          <p className="text-sm font-bold uppercase tracking-wider text-amber-500">Configuración inicial</p>
+          <p className="text-sm font-bold uppercase tracking-wider text-emerald-500">Configuración inicial</p>
           <h1 className="mt-3 text-2xl font-black text-white">Falta una sucursal o un empleado</h1>
           <p className="mt-3 text-sm text-slate-300">Oracle respondió correctamente, pero el inicio requiere al menos una sucursal y un empleado asociado.</p>
-          <button onClick={() => setActiveModule("basedatos")} className="mt-6 rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-950">Abrir mantenimiento de tablas</button>
+          <button onClick={() => setActiveModule("basedatos")} className="mt-6 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Abrir mantenimiento de tablas</button>
         </div>
       </div>
     );
@@ -149,6 +165,10 @@ function App() {
           <Header
             sucursal={activeBranch}
             empleado={activeEmployee}
+            sucursales={data.sucursales}
+            empleados={data.empleados}
+            onSucursalChange={changeBranch}
+            onEmpleadoChange={changeEmployee}
             onMenu={() => setMobileOpen(true)}
           />
 
@@ -171,6 +191,7 @@ function App() {
                   inventario={data.inventario}
                   sucursalId={activeBranch.id_sucursal}
                   empleadoId={activeEmployee.id_empleado}
+                  onSaleCreated={() => setRefreshKey((current) => current + 1)}
                 />
               )}
 

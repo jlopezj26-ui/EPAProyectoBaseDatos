@@ -2,12 +2,11 @@ interface MetricCardProps {
   label: string;
   value: string;
   detail: string;
-  accent?: "amber" | "blue" | "emerald" | "red";
+  accent?: "emerald" | "blue" | "red";
 }
 
-export function MetricCard({ label, value, detail, accent = "amber" }: MetricCardProps) {
+export function MetricCard({ label, value, detail, accent = "emerald" }: MetricCardProps) {
   const accents = {
-    amber: "bg-amber-50 text-amber-600",
     blue: "bg-blue-50 text-blue-600",
     emerald: "bg-emerald-50 text-emerald-600",
     red: "bg-red-50 text-red-600"

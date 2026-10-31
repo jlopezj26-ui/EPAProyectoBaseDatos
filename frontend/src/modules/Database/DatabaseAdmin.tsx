@@ -13,6 +13,7 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -32,6 +33,7 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
   useEffect(() => {
     if (!activeTable) return;
     let cancelled = false;
+    setColumnFilters({});
     setLoading(true);
     setError('');
     api.getTable(activeTable.nombre)
@@ -43,9 +45,16 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
 
   const visibleRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('es');
-    return rows.filter((row) => Object.values(row)
-      .some((value) => String(value ?? '').toLocaleLowerCase('es').includes(normalizedQuery)));
-  }, [rows, query]);
+    return rows.filter((row) => {
+      const matchesQuery = !normalizedQuery || Object.values(row)
+        .some((value) => String(value ?? '').toLocaleLowerCase('es').includes(normalizedQuery));
+      const matchesColumns = activeTable?.campos.every((field) => {
+        const filter = columnFilters[field.nombre]?.trim().toLocaleLowerCase('es') ?? '';
+        return !filter || displayValue(field, row).toLocaleLowerCase().includes(filter);
+      }) ?? true;
+      return matchesQuery && matchesColumns;
+    });
+  }, [activeTable, columnFilters, query, rows]);
 
   async function loadReferences(table: ApiTable) {
     const referenceTables = [...new Set(table.campos.flatMap((field) =>
@@ -156,26 +165,28 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
     <div className="space-y-6">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-bold uppercase tracking-wider text-amber-600">Mantenimiento</p>
+          <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">Mantenimiento</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900">Base de datos</h1>
           <p className="mt-2 text-sm text-slate-500">CRUD directo sobre las tablas del esquema Oracle.</p>
         </div>
-        <button onClick={openCreate} disabled={!activeTable || loading} className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-400 disabled:opacity-50">Nuevo registro</button>
+        <button onClick={openCreate} disabled={!activeTable || loading} className="rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50">Nuevo registro</button>
       </section>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto]">
+        <div className="grid gap-3 md:grid-cols-2">
           <label className="grid gap-1 text-xs font-bold text-slate-500">Tabla Oracle
-            <select value={selectedName} onChange={(event) => { setSelectedName(event.target.value); setQuery(''); }} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-amber-500">
+            <select value={selectedName} onChange={(event) => { setSelectedName(event.target.value); setQuery(''); }} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500">
               {tables.map((table) => <option key={table.nombre} value={table.nombre}>{table.etiqueta} · {table.tablaOracle}</option>)}
             </select>
           </label>
           <label className="grid gap-1 text-xs font-bold text-slate-500">Buscar registros
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar..." className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-normal text-slate-800 outline-none focus:border-amber-500" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar en toda la tabla..." className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-normal text-slate-800 outline-none focus:border-emerald-500" />
           </label>
-          <div className="flex items-end pb-3 text-xs text-slate-500">{loading ? 'Cargando...' : `${visibleRows.length} / ${rows.length} registros`}</div>
+          <div className="flex items-center justify-end text-xs text-slate-500 md:col-span-2">
+            {loading ? 'Cargando...' : `${visibleRows.length} / ${rows.length} registros`}
+          </div>
         </div>
       </section>
 
@@ -186,7 +197,23 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-400"><tr>{activeTable?.campos.map((field) => <th key={field.nombre} className="px-4 py-3">{field.etiqueta}</th>)}<th className="px-4 py-3 text-right">Acciones</th></tr></thead>
+            <thead className="bg-slate-50 text-xs text-slate-400">
+              <tr>
+                {activeTable?.campos.map((field) => (
+                  <th key={field.nombre} className="min-w-36 px-4 py-3 align-top text-left uppercase">
+                    <span className="block">{field.etiqueta}</span>
+                    <input
+                      value={columnFilters[field.nombre] ?? ''}
+                      onChange={(event) => setColumnFilters((current) => ({ ...current, [field.nombre]: event.target.value }))}
+                      placeholder="Filtrar..."
+                      aria-label={`Filtrar ${field.etiqueta}`}
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-normal normal-case text-slate-700 outline-none focus:border-emerald-500"
+                    />
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-right uppercase">Acciones</th>
+              </tr>
+            </thead>
             <tbody>
               {loading ? <tr><td colSpan={(activeTable?.campos.length ?? 0) + 1} className="px-5 py-12 text-center text-sm text-slate-400">Consultando Oracle...</td></tr>
                 : visibleRows.length === 0 ? <tr><td colSpan={(activeTable?.campos.length ?? 0) + 1} className="px-5 py-12 text-center text-sm text-slate-400">{rows.length ? 'No hay resultados para esta búsqueda.' : 'La tabla no tiene registros.'}</td></tr>
@@ -196,7 +223,7 @@ export function DatabaseAdmin({ onDataChanged }: Props) {
         </div>
       </section>
 
-      {modalOpen && activeTable && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onMouseDown={(event) => event.target === event.currentTarget && setModalOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="database-modal-title" className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"><header className="border-b border-slate-100 px-6 py-5"><p className="text-xs font-bold uppercase tracking-widest text-amber-600">{activeTable.tablaOracle}</p><h2 id="database-modal-title" className="mt-1 text-xl font-black text-slate-900">{editing ? 'Editar registro' : 'Nuevo registro'}</h2></header><form onSubmit={save} className="flex max-h-[78vh] flex-col"><div className="grid gap-4 overflow-y-auto p-6 sm:grid-cols-2">{activeTable.campos.filter((field) => !field.clavePrimaria).map((field) => <label key={field.nombre} className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-600">{field.etiqueta}{field.referencia ? <select value={form[field.nombre] ?? ''} onChange={(event) => setForm({ ...form, [field.nombre]: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-amber-500"><option value="">Seleccionar...</option>{referenceOptions(field).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select> : <input type={field.tipo === 'fecha' ? 'date' : field.tipo === 'texto' ? 'text' : 'number'} step={field.tipo === 'decimal' ? 'any' : field.tipo === 'entero' ? '1' : undefined} maxLength={field.longitud} value={form[field.nombre] ?? ''} onChange={(event) => setForm({ ...form, [field.nombre]: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-amber-500" placeholder={field.tipo === 'texto' ? 'Opcional' : '0'} />}</label>)}</div><footer className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4"><button type="button" onClick={() => setModalOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">Cancelar</button><button type="submit" disabled={saving} className="rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-black text-slate-950 disabled:opacity-50">{saving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear registro'}</button></footer></form></section></div>}
+      {modalOpen && activeTable && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onMouseDown={(event) => event.target === event.currentTarget && setModalOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="database-modal-title" className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"><header className="border-b border-slate-100 px-6 py-5"><p className="text-xs font-bold uppercase tracking-widest text-emerald-600">{activeTable.tablaOracle}</p><h2 id="database-modal-title" className="mt-1 text-xl font-black text-slate-900">{editing ? 'Editar registro' : 'Nuevo registro'}</h2></header><form onSubmit={save} className="flex max-h-[78vh] flex-col"><div className="grid gap-4 overflow-y-auto p-6 sm:grid-cols-2">{activeTable.campos.filter((field) => !field.clavePrimaria).map((field) => <label key={field.nombre} className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-600">{field.etiqueta}{field.referencia ? <select value={form[field.nombre] ?? ''} onChange={(event) => setForm({ ...form, [field.nombre]: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-emerald-500"><option value="">Seleccionar...</option>{referenceOptions(field).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select> : <input type={field.tipo === 'fecha' ? 'date' : field.tipo === 'texto' ? 'text' : 'number'} step={field.tipo === 'decimal' ? 'any' : field.tipo === 'entero' ? '1' : undefined} maxLength={field.longitud} value={form[field.nombre] ?? ''} onChange={(event) => setForm({ ...form, [field.nombre]: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-emerald-500" placeholder={field.tipo === 'texto' ? 'Opcional' : '0'} />}</label>)}</div><footer className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4"><button type="button" onClick={() => setModalOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">Cancelar</button><button type="submit" disabled={saving} className="rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-black text-slate-950 disabled:opacity-50">{saving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear registro'}</button></footer></form></section></div>}
     </div>
   );
 }

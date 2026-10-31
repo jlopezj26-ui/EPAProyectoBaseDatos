@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { MovimientoInventario, TbInventario, TbProducto, TbSucursal } from "../../types/database";
 import { StatusBadge } from "../../components/StatusBadge";
+import { compareValues, toggleSort, type SortState } from "../../utils/sorting";
 
 interface InventoryProps {
   inventario: TbInventario[];
@@ -13,24 +14,32 @@ interface InventoryProps {
 export function Inventory({ inventario, movimientos, productos, sucursales, sucursalId }: InventoryProps) {
   const [selectedSucursal, setSelectedSucursal] = useState(sucursalId);
   const [filter, setFilter] = useState("");
-
-  const rows = useMemo(
-    () =>
-      inventario.filter((item) => {
-        const product = productos.find((p) => p.id_producto === item.id_producto);
-        return item.id_sucursal === selectedSucursal &&
-          `${product?.nombre ?? ""}`.toLowerCase().includes(filter.toLowerCase());
-      }),
-    [inventario, productos, selectedSucursal, filter]
-  );
+  const [sort, setSort] = useState<SortState>({ key: "producto", direction: "asc" });
 
   const getProduct = (id: number) => productos.find((p) => p.id_producto === id)?.nombre ?? "Producto";
   const getBranch = (id: number) => sucursales.find((s) => s.id_sucursal === id)?.nombre ?? "Sucursal";
 
+  const rows = useMemo(() => {
+    const filtered = inventario.filter((item) => {
+        const product = productos.find((p) => p.id_producto === item.id_producto);
+        return item.id_sucursal === selectedSucursal &&
+          `${product?.nombre ?? ""}`.toLowerCase().includes(filter.toLowerCase());
+    });
+    return filtered.sort((left, right) => {
+      const getValue = (item: TbInventario) => {
+        const product = productos.find((p) => p.id_producto === item.id_producto);
+        return sort.key === "producto" ? product?.nombre ?? "" : sort.key === "sucursal"
+          ? getBranch(item.id_sucursal) : item[sort.key as keyof TbInventario];
+      };
+      const result = compareValues(getValue(left), getValue(right));
+      return sort.direction === "asc" ? result : -result;
+    });
+  }, [inventario, productos, selectedSucursal, filter, sort]);
+
   return (
     <div className="space-y-6">
       <section>
-        <p className="text-sm font-bold uppercase tracking-wider text-amber-600">Módulo 2</p>
+        <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">Módulo 2</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900">Control de Inventario</h1>
         <p className="mt-2 text-sm text-slate-500">Existencias por sucursal, mínimos y movimientos.</p>
       </section>
@@ -40,7 +49,7 @@ export function Inventory({ inventario, movimientos, productos, sucursales, sucu
           <select
             value={selectedSucursal}
             onChange={(e) => setSelectedSucursal(Number(e.target.value))}
-            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-amber-500"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
           >
             {sucursales.map((sucursal) => (
               <option key={sucursal.id_sucursal} value={sucursal.id_sucursal}>{sucursal.nombre}</option>
@@ -51,7 +60,7 @@ export function Inventory({ inventario, movimientos, productos, sucursales, sucu
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Filtrar producto..."
-            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-amber-500"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500"
           />
         </div>
       </section>
@@ -61,11 +70,19 @@ export function Inventory({ inventario, movimientos, productos, sucursales, sucu
           <table className="w-full min-w-[700px] text-left">
             <thead className="bg-slate-950 text-xs uppercase tracking-wider text-slate-300">
               <tr>
-                <th className="px-5 py-4">Producto</th>
-                <th className="px-5 py-4">Sucursal</th>
-                <th className="px-5 py-4 text-center">Stock</th>
-                <th className="px-5 py-4 text-center">Mínimo</th>
-                <th className="px-5 py-4">Actualización</th>
+                {[
+                  ["producto", "Producto"],
+                  ["sucursal", "Sucursal"],
+                  ["stock", "Stock"],
+                  ["stock_minimo", "Mínimo"],
+                  ["fecha_actualizacion", "Actualización"],
+                ].map(([key, label]) => (
+                  <th key={key} className="px-5 py-4">
+                    <button type="button" onClick={() => setSort((current) => toggleSort(current, key))} className="font-inherit">
+                      {label} {sort.key === key ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}
+                    </button>
+                  </th>
+                ))}
                 <th className="px-5 py-4 text-right">Estado</th>
               </tr>
             </thead>

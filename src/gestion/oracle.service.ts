@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Injectable,
   NotFoundException,
   OnModuleDestroy,
@@ -11,6 +12,7 @@ import * as oracledb from 'oracledb';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { CampoTabla, DefinicionTabla, TABLAS, obtenerTabla } from './tablas';
+import { CrearVentaDto } from './dtos/crear-venta.dto';
 
 type Fila = Record<string, unknown>;
 
@@ -63,6 +65,120 @@ export class OracleService implements OnModuleInit, OnModuleDestroy {
 
   listarTablas() {
     return Object.values(TABLAS);
+  }
+
+  async crearVenta(body: CrearVentaDto) {
+    if (!body.detalles.length) {
+      throw new BadRequestException('La venta debe incluir al menos un producto.');
+    }
+
+    const detalles = new Map<number, number>();
+    for (const detalle of body.detalles) {
+      detalles.set(detalle.id_producto, (detalles.get(detalle.id_producto) ?? 0) + detalle.cantidad);
+    }
+
+    const connection = await this.conexion();
+    try {
+      const lineas: Array<{ idProducto: number; idInventario: number; cantidad: number; precio: number }> = [];
+      let total = 0;
+
+      for (const [idProducto, cantidad] of detalles) {
+        const inventarioResult = await connection.execute(
+          `SELECT ID_INVENTARIO, STOCK
+             FROM TB_INVENTARIO
+            WHERE ID_SUCURSAL = :1 AND ID_PRODUCTO = :2
+            FOR UPDATE`,
+          [body.id_sucursal, idProducto],
+          { outFormat: oracledb.OUT_FORMAT_OBJECT },
+        );
+        const inventario = (inventarioResult.rows?.[0] ?? {}) as { ID_INVENTARIO?: number; STOCK?: number };
+        if (inventario.ID_INVENTARIO === undefined) {
+          throw new NotFoundException(`No existe inventario para el producto ${idProducto} en la sucursal ${body.id_sucursal}.`);
+        }
+        if (Number(inventario.STOCK ?? 0) < cantidad) {
+          throw new ConflictException(
+            `Stock insuficiente para el producto ${idProducto}: disponible ${inventario.STOCK ?? 0}, solicitado ${cantidad}.`,
+          );
+        }
+
+        const productoResult = await connection.execute(
+          'SELECT PRECIO_UNITARIO FROM TB_PRODUCTO WHERE ID_PRODUCTO = :1',
+          [idProducto],
+          { outFormat: oracledb.OUT_FORMAT_OBJECT },
+        );
+        const producto = (productoResult.rows?.[0] ?? {}) as { PRECIO_UNITARIO?: number };
+        if (producto.PRECIO_UNITARIO === undefined) {
+          throw new NotFoundException(`No existe el producto ${idProducto}.`);
+        }
+
+        const precio = Number(producto.PRECIO_UNITARIO);
+        lineas.push({
+          idProducto,
+          idInventario: Number(inventario.ID_INVENTARIO),
+          cantidad,
+          precio,
+        });
+        total += precio * cantidad;
+      }
+
+      const ventaIdResult = await connection.execute(
+        'SELECT NVL(MAX(ID_VENTA), 0) + 1 AS "ID_VENTA" FROM TB_ENCABEZADO_VENTA',
+        [],
+        { outFormat: oracledb.OUT_FORMAT_OBJECT },
+      );
+      const ventaId = Number((ventaIdResult.rows?.[0] as { ID_VENTA?: number } | undefined)?.ID_VENTA ?? 0);
+
+      const detalleIdResult = await connection.execute(
+        'SELECT NVL(MAX(ID_DETALLE), 0) + 1 AS "ID_DETALLE" FROM TB_DETALLE_VENTA',
+        [],
+        { outFormat: oracledb.OUT_FORMAT_OBJECT },
+      );
+      let detalleId = Number((detalleIdResult.rows?.[0] as { ID_DETALLE?: number } | undefined)?.ID_DETALLE ?? 0);
+
+      await connection.execute(
+        `INSERT INTO TB_ENCABEZADO_VENTA
+          (ID_VENTA, ID_CLIENTE, ID_SUCURSAL, ID_EMPLEADO, FECHA_VENTA, TOTAL_VENTA, ESTADO)
+         VALUES (:1, :2, :3, :4, TRUNC(SYSDATE), :5, 'PAGADA')`,
+        [ventaId, body.id_cliente, body.id_sucursal, body.id_empleado, total],
+      );
+
+      for (const linea of lineas) {
+        await connection.execute(
+          `INSERT INTO TB_DETALLE_VENTA
+            (ID_DETALLE, ID_VENTA, ID_INVENTARIO, CANTIDAD, PRECIO_UNITARIO, SUBTOTAL)
+           VALUES (:1, :2, :3, :4, :5, :6)`,
+          [
+            detalleId++,
+            ventaId,
+            linea.idInventario,
+            linea.cantidad,
+            linea.precio,
+            linea.precio * linea.cantidad,
+          ],
+        );
+        await connection.execute(
+          `UPDATE TB_INVENTARIO
+              SET STOCK = STOCK - :1,
+                  FECHA_ACTUALIZACION = TRUNC(SYSDATE)
+            WHERE ID_INVENTARIO = :2`,
+          [linea.cantidad, linea.idInventario],
+        );
+      }
+
+      await connection.commit();
+      return {
+        id_venta: ventaId,
+        total_venta: total,
+        detalles: lineas.length,
+        estado: 'PAGADA',
+      };
+    } catch (error) {
+      await connection.rollback();
+      if (error instanceof HttpException) throw error;
+      this.traducirError(error);
+    } finally {
+      await connection.close();
+    }
   }
 
   async listar(nombre: string): Promise<Fila[]> {
@@ -185,13 +301,17 @@ export class OracleService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async conConexion<T>(operation: (connection: oracledb.Connection) => Promise<T>): Promise<T> {
-    if (!this.pool) throw new Error('El pool Oracle no está inicializado.');
-    const connection = await this.pool.getConnection();
+    const connection = await this.conexion();
     try {
       return await operation(connection);
     } finally {
       await connection.close();
     }
+  }
+
+  private async conexion(): Promise<oracledb.Connection> {
+    if (!this.pool) throw new Error('El pool Oracle no está inicializado.');
+    return this.pool.getConnection();
   }
 
   private validarBody(tabla: DefinicionTabla, body: Fila, requiereId: boolean): CampoTabla[] {

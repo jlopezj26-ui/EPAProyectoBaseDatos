@@ -11,6 +11,12 @@ import type {
 
 const API_BASE = '/api/gestion';
 type JsonRecord = Record<string, unknown>;
+export type CrearVenta = {
+  id_cliente: number;
+  id_sucursal: number;
+  id_empleado: number;
+  detalles: Array<{ id_producto: number; cantidad: number }>;
+};
 export type ApiField = {
   nombre: string;
   etiqueta: string;
@@ -51,6 +57,10 @@ function tablePath(table: string) {
 }
 
 export const api = {
+  createSale: (data: CrearVenta) => request<{ id_venta: number; total_venta: number; detalles: number; estado: string }>('/api/ventas', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
   getTables: () => request<ApiTable[]>(`${API_BASE}/tablas`),
   getTable: (table: string) => request<JsonRecord[]>(tablePath(table)),
   getSucursales: () => request<TbSucursal[]>(tablePath('sucursales')),

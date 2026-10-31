@@ -14,7 +14,7 @@ npm install
 npm run start:dev
 ```
 
-La API queda disponible en `http://localhost:3000/api` y la documentación Swagger interactiva en `http://localhost:3000/api/docs`.
+La API queda disponible en `http://localhost:3001/api` y la documentación Swagger interactiva en `http://localhost:3001/api/docs`.
 
 ## Frontend de prueba
 
@@ -26,7 +26,40 @@ npm install
 npm run dev
 ```
 
-Abre `http://localhost:5173`. Vite redirige las llamadas `/api` al backend en `http://localhost:3000`; inicia primero la API para consultar y gestionar productos. Para apuntar a otra URL, define `VITE_API_URL` al iniciar el frontend.
+Abre `http://localhost:5173`. Vite redirige las llamadas `/api` al backend en `http://localhost:3001`; inicia primero la API para consultar y gestionar productos.
+
+## Despliegue en Vercel
+
+El archivo [`vercel.json`](./vercel.json) configura dos servicios dentro del mismo proyecto:
+
+- `frontend`: servicio Vite público para la interfaz en `/`.
+- `app`: servicio NestJS público para la API en `/api/*`.
+
+El frontend consume la API mediante rutas relativas `/api/gestion`, por lo que no necesita una URL de backend ni un binding de servicio. En Vercel, el backend debe recibir las variables Oracle definidas en `.env` como variables de entorno del proyecto; no se debe subir `.env` al repositorio.
+
+## Registro de ventas
+
+El módulo POS registra ventas reales mediante `POST /api/ventas`. Cada operación crea un encabezado en `TB_ENCABEZADO_VENTA`, crea sus detalles en `TB_DETALLE_VENTA`, descuenta el inventario dentro de una transacción Oracle y deja que el trigger de movimientos registre las salidas. Si falla cualquier línea, la operación hace `ROLLBACK`.
+
+Ejemplo de solicitud:
+
+```json
+{
+  "id_cliente": 1,
+  "id_sucursal": 1,
+  "id_empleado": 1,
+  "detalles": [
+    { "id_producto": 1, "cantidad": 2 },
+    { "id_producto": 3, "cantidad": 1 }
+  ]
+}
+```
+
+Para probar todos los servicios localmente con la CLI de Vercel:
+
+```bash
+vercel dev
+```
 
 ## Estructura
 

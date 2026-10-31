@@ -9,6 +9,7 @@
     "preview": "vite preview --config vite.config.ts"
   },
   "dependencies": {
+    "epa-proyecto-base-datos": "file:..",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
